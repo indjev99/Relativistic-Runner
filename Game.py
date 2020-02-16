@@ -113,6 +113,7 @@ def move_point(x, y, dx, dy):
 
 player_width = 1
 player_height = 1
+player_mass = 1
 
 if __name__ == "__main__":
   platforms = []
@@ -164,12 +165,17 @@ if __name__ == "__main__":
         if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
           fx = 0
 
-    fy = g
-    px, py = move_point(px, py, fx * dt, fy * dt)
+    fy = g * player_mass
+    f_3vec = np.array([0, fx, fy])
+    f_3vec_prime = ref_frame.transform(f_3vec)
+    dt_prime = dt * ref_frame.gamma
+    m_prime = ref_frame.get_mass(player_mass)
+
+    px, py = move_point(px, py, f_3vec_prime[1] * dt / m_prime, f_3vec_prime[2] * dt / m_prime)
+    print(np.linalg.norm(ref_frame.velocity))
     x, y = move_point(x, y, px * dt, py * dt)
 
-    m = ref_frame.get_mass(1)
-    ref_frame.update(convert_speed(px / m, py / m))
+    ref_frame.update(convert_speed(px / m_prime, py / m_prime))
 
     grounded = False
 
