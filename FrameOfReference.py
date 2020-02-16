@@ -17,7 +17,7 @@ class LabFrame:
                                         (self.gamma - 1) * self.normals[0] * self.normals[1]],
                                         [-self.gamma * self.velocity[1],
                                          (self.gamma - 1) * self.normals[0] * self.normals[1],
-                                         1 + (self.gamma - 1) * self.normals[0] ** 2]])
+                                         1 + (self.gamma - 1) * self.normals[1] ** 2]])
 
     def transform(self, event):
         return np.dot(self.transformation, event)
