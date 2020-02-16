@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class LabFrame:
     def __init__(self, velocity):
         self.update(velocity)
@@ -8,14 +9,15 @@ class LabFrame:
         self.velocity = velocity
         self.gamma = 1 / np.sqrt(1 - np.linalg.norm(velocity) ** 2)
         self.normals = np.array([0, 1]) if np.linalg.norm(velocity) == 0 else velocity / np.linalg.norm(velocity) 
-        self.transformation = np.array([[1 + (self.gamma - 1) * self.normals[0] ** 2,
-                                         (self.gamma - 1) * self.normals[0] * self.normals[1],
-                                         -self.gamma * self.velocity[0]],
-                                        [(self.gamma - 1) * self.normals[0] * self.normals[1],
-                                         1 + (self.gamma - 1) * self.normals[0] ** 2,
+        self.transformation = np.array([[self.gamma,
+                                         -self.gamma * self.velocity[0],
                                          -self.gamma * self.velocity[1]],
                                         [-self.gamma * self.velocity[0],
-                                         -self.gamma * self.velocity[1], self.gamma]])
+                                         1 + (self.gamma - 1) * self.normals[0] ** 2,
+                                        (self.gamma - 1) * self.normals[0] * self.normals[1]],
+                                        [-self.gamma * self.velocity[1],
+                                         (self.gamma - 1) * self.normals[0] * self.normals[1],
+                                         1 + (self.gamma - 1) * self.normals[0] ** 2]])
 
     def transform(self, event):
         return np.dot(self.transformation, event)
