@@ -4,9 +4,9 @@ import numpy as np
 import FrameOfReference
 import Vision
 
-min_gap = 1
-max_gap = 3
-max_vert_gap = 1.5
+min_gap = 0
+max_gap = 1
+max_vert_gap = 0# 1.5
 max_height = 0.5
 min_length = 1.5
 max_length = 5
@@ -32,8 +32,16 @@ draw_scale = 50
 nat_m = 1
 nat_s = 1
 
-def vec3(x, y):
-  return np.array([0, nat_m * x, nat_m * y])
+EPS = 0.1
+
+def get_observation(ref_frame, x, y):
+  x, y = x * nat_m, y * nat_m
+  t = - x * ref_frame.velocity[0] - y * ref_frame.velocity[1]
+  return np.array([t, x, y])
+
+def from_observation(txy):
+  t, x, y = txy
+  return x / nat_m, y / nat_m
 
 def vec2(dx, dy):
   return np.array([nat_m * dx / nat_s, nat_m * dy / nat_s])
@@ -42,25 +50,26 @@ def draw_transform_point(x, y):
   return (400 + x * draw_scale, 300 - y * draw_scale)
 
 def draw_rect(ref_frame, disp, col, x, y, w, h, player):
-  x1 = x
-  x2 = x + w
-  y1 = y
-  y2 = y + h
+  x1, y1 = x, y
+  x2, y2 = x + w, y
+  x3, y3 = x + w, y + h
+  x4, y4 = x, y + h
 
-  if x1 > 1600 or x2 < -800 or y1 > 1200 or y2 < -600:
-    return
+  if not player:
+    if x1 > 1600 or x3 < -800 or y1 > 1200 or y3 < -600:
+      return
 
-  p1 = vec3(x, y)
-  p2 = vec3(x + w, y)
-  p3 = vec3(x + w, y + h)
-  p4 = vec3(x, y + h)
+    p1 = get_observation(ref_frame, x1, y1)
+    p2 = get_observation(ref_frame, x2, y2)
+    p3 = get_observation(ref_frame, x3, y3)
+    p4 = get_observation(ref_frame, x4, y4)
 
-  p1, p2, p3, p4 = ref_frame.transform_polygon([p1, p2, p3, p4])
+    p1, p2, p3, p4 = ref_frame.inverse_transform_polygon([p1, p2, p3, p4])
 
-  _, x1, y1 = p1
-  _, x2, y2 = p2
-  _, x3, y3 = p3
-  _, x4, y4 = p4
+    x1, y1 = from_observation(p1)
+    x2, y2 = from_observation(p2)
+    x3, y3 = from_observation(p3)
+    x4, y4 = from_observation(p4)
 
   avg_x = (x1 + x2 + x3 + x4) / 4
   avg_y = (y1 + y2 + y3 + y4) / 4
@@ -80,8 +89,8 @@ def draw_rect(ref_frame, disp, col, x, y, w, h, player):
   if y1 < 0 and y2 < 0 and y3 < 0 and y4 < 0:
     is_in = False
 
-  if not player:
-    col = ref_frame.doppler_shift(col, vec3(avg_x, avg_y))
+  #if not player:
+  #  col = ref_frame.doppler_shift(col, np.array([0, avg_x, avg_y]))
   r, g, b = Vision.wavelength_to_rgb(col)
   
   if is_in:
@@ -100,9 +109,13 @@ if __name__ == "__main__":
   game_display = pygame.display.set_mode((800, 600))
   game_clock = pygame.time.Clock()
 
+  m = 1
   x, y = 0, 0
-  dx, dy = 0, 0
-  ddx, ddy = 0, -0.01
+  px, py = 0, 0
+  fx, fy = 0, 0
+  g = -0.01
+  dt = 0.7
+
   grounded = True
 
   ref_frame = FrameOfReference.LabFrame(np.zeros(2))
@@ -110,8 +123,6 @@ if __name__ == "__main__":
   stop = False
   while not stop:
     game_display.fill(back_col)
-
-    ref_frame.update(vec2(dx, dy))
 
     draw_rect(ref_frame, game_display, player_col, -player_width / 2, -player_height / 2, player_width, player_height, True)
 
@@ -126,19 +137,20 @@ if __name__ == "__main__":
         stop = True
       elif event.type == pygame.KEYDOWN:
         if event.key == pygame.K_RIGHT:
-          ddx = 0.01
+          fx = 0.01
         elif event.key == pygame.K_LEFT:
-          ddx = -0.01
+          fx = -0.01
         elif event.key == pygame.K_SPACE:
           if grounded:
-            dy = 0.3
+            py = 0.3
       elif event.type == pygame.KEYUP:
         if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
-          ddx = 0
-    
-    print(ref_frame.get_mass(1))
-    dx, dy = move_point(dx, dy, ddx / ref_frame.get_mass(1), ddy / ref_frame.get_mass(1))
-    x, y = move_point(x, y, dx, dy)
+          fx = 0
+
+    fy = g
+    px, py = move_point(px, py, fx * dt, fy * dt)
+    x, y = move_point(x, y, px * dt, py * dt)
+
     grounded = False
 
     for (x1, y1, p_w, p_h) in platforms:
@@ -148,22 +160,25 @@ if __name__ == "__main__":
       vert_in = y + player_height > y1 and y < y2
       is_in = horz_in and vert_in
       if is_in:
-        if dx > 0:
+        if px > 0:
           horz_move = x1 - (x + player_width)
         else:
           horz_move = x2 - x
-        if dy > 0:
+        if py > 0:
           vert_move = y1 - (y + player_height)
         else:
           vert_move = y2 - y
         if abs(horz_move) < abs(vert_move):
           x += horz_move
-          dx = 0
+          px = 0
         else:
           if (vert_move > 0):
             grounded = True
           y += vert_move
-          dy = 0
+          py = 0
+
+    m = ref_frame.get_mass(1)
+    ref_frame.update(vec2(px / m, py / m))
 
   pygame.quit()
   quit()

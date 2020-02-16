@@ -18,12 +18,19 @@ class LabFrame:
                                         [-self.gamma * self.velocity[1],
                                          (self.gamma - 1) * self.normals[0] * self.normals[1],
                                          1 + (self.gamma - 1) * self.normals[1] ** 2]])
+        self.invtransformation = np.linalg.inv(self.transformation)
 
     def transform(self, event):
         return np.dot(self.transformation, event)
 
     def transform_polygon(self, polygon):
         return [self.transform(point) for point in polygon]
+
+    def inverse_transform(self, event):
+        return np.dot(self.invtransformation, event)
+
+    def inverse_transform_polygon(self, polygon):
+        return [self.inverse_transform(point) for point in polygon]
 
     def doppler_shift(self, wavelength, event):
         theta_velocity = np.arctan2(self.velocity[1], self.velocity[0])
