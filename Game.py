@@ -23,7 +23,7 @@ max_gap = 1
 max_vert_gap = 0# 1.5
 max_height = 0.5
 min_length = 5.5
-max_length = 25
+max_length = 10
 
 back_col = (255, 255, 255)
 player_col = 650
@@ -43,14 +43,13 @@ draw_scale = 50
 EPS = 0.001
 
 def get_observation(ref_frame, x, y):
-  x, y = x
   t = - x * ref_frame.velocity[0] - y * ref_frame.velocity[1]
   return np.array([t, x, y])
 
 def from_observation(txy):
   t, x, y = txy
   assert(abs(t) < EPS)
-  return x
+  return x, y
 
 def convert_speed(dx, dy):
   return np.array([dx, dy])
@@ -142,6 +141,9 @@ if __name__ == "__main__":
     draw_rect(game_display, player_rect)
     for r in platforms:
       if r.draw:
+        reset_rect(r)
+        translate_rect(x, y, r)
+        lorentz_rect(ref_frame, r)
         draw_rect(game_display, r)
     pygame.display.update()
 
@@ -157,7 +159,7 @@ if __name__ == "__main__":
           fx = -0.01
         elif event.key == pygame.K_SPACE:
           if grounded:
-            py = 0.2
+            vy = 0.2
       elif event.type == pygame.KEYUP:
         if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
           fx = 0
@@ -175,13 +177,11 @@ if __name__ == "__main__":
     if (lim_norm < 1):
       vx *= lim_norm
       vy *= lim_norm
-    
-    print(delta_vx, vx)
 
     x, y = move_point(x, y, vx * delta_t, vy * delta_t)
 
     ref_frame.update(convert_speed(vx, vy))
-
+    
     grounded = False
 
     for r in platforms:
