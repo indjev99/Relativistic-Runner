@@ -149,6 +149,8 @@ if __name__ == "__main__":
     pygame.display.update()
 
     game_clock.tick(60)
+
+    fy = g * player_mass
     
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
@@ -160,12 +162,11 @@ if __name__ == "__main__":
           fx = -0.01
         elif event.key == pygame.K_SPACE:
           if grounded:
-            vy = 0.2
+            fy += 0.2 * player_mass / delta_t
       elif event.type == pygame.KEYUP:
         if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
           fx = 0
 
-    fy = g * player_mass
     delta_p_3vec = np.array([0, fx * delta_t / ref_frame.gamma, fy * delta_t / ref_frame.gamma])
     delta_p_3vec_prime = ref_frame.transform(delta_p_3vec)
     m_prime = ref_frame.get_mass(player_mass)
