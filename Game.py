@@ -22,8 +22,8 @@ min_gap = 0
 max_gap = 1
 max_vert_gap = 0# 1.5
 max_height = 0.5
-min_length = 1.5
-max_length = 5
+min_length = 5.5
+max_length = 25
 
 back_col = (255, 255, 255)
 player_col = 650
@@ -40,23 +40,20 @@ def generate_platforms(curr_x, curr_y, final_x, platforms):
 
 draw_scale = 50
 
-nat_m = 1
-nat_s = 1
-
 EPS = 0.001
 
 def get_observation(ref_frame, x, y):
-  x, y = x * nat_m, y * nat_m
+  x, y = x
   t = - x * ref_frame.velocity[0] - y * ref_frame.velocity[1]
   return np.array([t, x, y])
 
 def from_observation(txy):
   t, x, y = txy
   assert(abs(t) < EPS)
-  return x / nat_m, y / nat_m
+  return x
 
 def convert_speed(dx, dy):
-  return np.array([nat_m * dx / nat_s, nat_m * dy / nat_s])
+  return np.array([dx, dy])
 
 def draw_transform_point(x, y):
   return (400 + x * draw_scale, 300 - y * draw_scale)
@@ -113,10 +110,11 @@ def move_point(x, y, dx, dy):
 
 player_width = 1
 player_height = 1
+player_mass = 1
 
 if __name__ == "__main__":
   platforms = []
-  generate_platforms(-player_width / 2, -player_height / 2, 100, platforms)
+  generate_platforms(-player_width / 2, -player_height / 2, 1000, platforms)
   print(len(platforms))
 
   pygame.init()
@@ -126,10 +124,10 @@ if __name__ == "__main__":
 
   m = 1
   x, y = 0, 0
-  px, py = 0, 0
+  vx, vy = 0, 0
   fx, fy = 0, 0
   g = -0.01
-  dt = 0.7
+  delta_t = 0.7
 
   player_rect = Rect(-player_width / 2, -player_height / 2, player_width, player_height, player_col)
 
@@ -139,7 +137,7 @@ if __name__ == "__main__":
 
   stop = False
   while not stop:
-
+    
     game_display.fill(back_col)
     draw_rect(game_display, player_rect)
     for r in platforms:
@@ -148,7 +146,7 @@ if __name__ == "__main__":
     pygame.display.update()
 
     game_clock.tick(60)
-
+    
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
         stop = True
@@ -164,12 +162,25 @@ if __name__ == "__main__":
         if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
           fx = 0
 
-    fy = g
-    px, py = move_point(px, py, fx * dt, fy * dt)
-    x, y = move_point(x, y, px * dt, py * dt)
+    fy = g * player_mass
+    delta_p_3vec = np.array([0, fx * delta_t / ref_frame.gamma, fy * delta_t / ref_frame.gamma])
+    delta_p_3vec_prime = ref_frame.transform(delta_p_3vec)
+    m_prime = ref_frame.get_mass(player_mass)
+    delta_t_prime = delta_t 
 
-    m = ref_frame.get_mass(1)
-    ref_frame.update(convert_speed(px / m, py / m))
+    delta_vx, delta_vy = delta_p_3vec_prime[1] / m_prime, delta_p_3vec_prime[2] / m_prime
+    vx, vy = move_point(vx, vy, delta_vx, delta_vy)
+
+    lim_norm = 0.9999 / np.linalg.norm(np.array([vx, vy]))
+    if (lim_norm < 1):
+      vx *= lim_norm
+      vy *= lim_norm
+    
+    print(delta_vx, vx)
+
+    x, y = move_point(x, y, vx * delta_t, vy * delta_t)
+
+    ref_frame.update(convert_speed(vx, vy))
 
     grounded = False
 
@@ -184,23 +195,23 @@ if __name__ == "__main__":
       vert_in = y1 < player_height / 2 and y2 > -player_height / 2
       is_in = horz_in and vert_in
       if is_in:
-        if px > 0:
+        if vx > 0:
           horz_move = x1 - player_width / 2
         else:
           horz_move = x2 + player_width / 2
-        if py > 0:
+        if vy > 0:
           vert_move = y1 - player_height / 2
         else:
           vert_move = y2 + player_height / 2
         
         if abs(horz_move) < abs(vert_move):
           x += horz_move
-          px = 0
+          vx = 0
         else:
           if (vert_move > 0):
             grounded = True
           y += vert_move
-          py = 0
+          vy = 0
 
   pygame.quit()
   quit()
