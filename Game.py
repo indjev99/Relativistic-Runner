@@ -3,6 +3,7 @@ import random
 import numpy as np
 import FrameOfReference
 import Vision
+import InvariantCalculator
 
 class Rect:
   def __init__(self, x, y, w, h, col):
@@ -168,15 +169,14 @@ if __name__ == "__main__":
     delta_p_3vec = np.array([0, fx * delta_t / ref_frame.gamma, fy * delta_t / ref_frame.gamma])
     delta_p_3vec_prime = ref_frame.transform(delta_p_3vec)
     m_prime = ref_frame.get_mass(player_mass)
-    delta_t_prime = delta_t 
+    delta_t_prime = delta_t
 
-    delta_vx, delta_vy = delta_p_3vec_prime[1] / m_prime, delta_p_3vec_prime[2] / m_prime
-    vx, vy = move_point(vx, vy, delta_vx, delta_vy)
-
-    lim_norm = 0.9999 / np.linalg.norm(np.array([vx, vy]))
-    if (lim_norm < 1):
-      vx *= lim_norm
-      vy *= lim_norm
+    p_2vec_prime = np.array([vx, vy]) * m_prime + delta_p_3vec_prime[1:]
+    print(p_2vec_prime)
+    gamma = InvariantCalculator.get_gamma_factor_wrt_rest_frame(np.linalg.norm(p_2vec_prime), player_mass)
+    v_modulus = InvariantCalculator.gamma_to_v(gamma)
+    vx = p_2vec_prime[0] / np.linalg.norm(p_2vec_prime) * v_modulus
+    vy = p_2vec_prime[1] / np.linalg.norm(p_2vec_prime) * v_modulus
 
     x, y = move_point(x, y, vx * delta_t, vy * delta_t)
 
